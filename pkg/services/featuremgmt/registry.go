@@ -162,5 +162,10 @@ var (
 			Description: "Lock database during migrations",
 			State:       FeatureStateBeta,
 		},
+		{
+			Name:        "commandPalette",
+			Description: "Enable command palette",
+			State:       FeatureStateAlpha,
+		},
 	}
 )

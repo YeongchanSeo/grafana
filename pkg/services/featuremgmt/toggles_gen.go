@@ -122,4 +122,8 @@ const (
 	// FlagMigrationLocking
 	// Lock database during migrations
 	FlagMigrationLocking = "migrationLocking"
+
+	// FlagCommandPalette
+	// Enable command palette
+	FlagCommandPalette = "commandPalette"
 )
