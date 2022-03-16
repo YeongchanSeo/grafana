@@ -70,6 +70,8 @@ const (
 	ElementTypeCheckbox = "checkbox"
 	// ElementTypeTextArea will render a textarea
 	ElementTypeTextArea = "textarea"
+	// ElementTypeKeyValueMap will render a key_value_map
+	ElementTypeKeyValueMap = "key_value_map"
 )
 
 // SelectOption is a simple type for Options that have dropdown options. Should be used when Element is ElementTypeSelect.
