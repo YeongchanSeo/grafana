@@ -3,6 +3,7 @@ package channels
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"strings"
 
@@ -31,38 +32,65 @@ type WebhookExtNotifier struct {
 	orgID         int64
 }
 
+type WebhookExtConfig struct {
+	*NotificationChannelConfig
+	URL           string
+	User          string
+	Password      string
+	HTTPMethod    string
+	MaxAlerts     int
+	UrlParameters map[string]interface{}
+}
+
+func WebHookExtFactory(fc FactoryConfig) (NotificationChannel, error) {
+	cfg, err := NewWebHookExtConfig(fc.Config, fc.DecryptFunc)
+	if err != nil {
+		return nil, receiverInitError{
+			Reason: err.Error(),
+			Cfg:    *fc.Config,
+		}
+	}
+	return NewWebHookExtNotifier(cfg, fc.NotificationService, fc.Template), nil
+}
+
+func NewWebHookExtConfig(config *NotificationChannelConfig, decryptFunc GetDecryptedValueFn) (*WebhookExtConfig, error) {
+	url := config.Settings.Get("url").MustString()
+	if url == "" {
+		return nil, errors.New("could not find url property in settings")
+	}
+	return &WebhookExtConfig{
+		NotificationChannelConfig: config,
+		URL:                       url,
+		User:                      config.Settings.Get("username").MustString(),
+		Password:                  decryptFunc(context.Background(), config.SecureSettings, "password", config.Settings.Get("password").MustString()),
+		HTTPMethod:                config.Settings.Get("httpMethod").MustString("POST"),
+		MaxAlerts:                 config.Settings.Get("maxAlerts").MustInt(0),
+		UrlParameters:             config.Settings.Get("urlParameters").MustMap(),
+	}, nil
+}
+
 // NewWebHookExtNotifier is the constructor for
 // the WebHookExt notifier.
-func NewWebHookExtNotifier(model *NotificationChannelConfig, ns notifications.WebhookSender, t *template.Template, fn GetDecryptedValueFn) (*WebhookExtNotifier, error) {
-	if model.Settings == nil {
-		return nil, receiverInitError{Cfg: *model, Reason: "no settings supplied"}
-	}
-	if model.SecureSettings == nil {
-		return nil, receiverInitError{Cfg: *model, Reason: "no secure settings supplied"}
-	}
-	url := model.Settings.Get("url").MustString()
-	if url == "" {
-		return nil, receiverInitError{Cfg: *model, Reason: "could not find url property in settings"}
-	}
+func NewWebHookExtNotifier(config *WebhookExtConfig, ns notifications.WebhookSender, t *template.Template) *WebhookExtNotifier {
 	return &WebhookExtNotifier{
 		Base: NewBase(&models.AlertNotification{
-			Uid:                   model.UID,
-			Name:                  model.Name,
-			Type:                  model.Type,
-			DisableResolveMessage: model.DisableResolveMessage,
-			Settings:              model.Settings,
+			Uid:                   config.UID,
+			Name:                  config.Name,
+			Type:                  config.Type,
+			DisableResolveMessage: config.DisableResolveMessage,
+			Settings:              config.Settings,
 		}),
-		orgID:         model.OrgID,
-		URL:           url,
-		User:          model.Settings.Get("username").MustString(),
-		Password:      fn(context.Background(), model.SecureSettings, "password", model.Settings.Get("password").MustString()),
-		HTTPMethod:    model.Settings.Get("httpMethod").MustString("POST"),
-		MaxAlerts:     model.Settings.Get("maxAlerts").MustInt(0),
-		UrlParameters: model.Settings.Get("urlParameters").MustMap(),
-		log:           log.New("alerting.notifier.webhook_ext"),
+		orgID:         config.OrgID,
+		URL:           config.URL,
+		User:          config.User,
+		Password:      config.Password,
+		HTTPMethod:    config.HTTPMethod,
+		MaxAlerts:     config.MaxAlerts,
+		UrlParameters: config.UrlParameters,
+		log:           log.New("alerting.notifier.webhook"),
 		ns:            ns,
 		tmpl:          t,
-	}, nil
+	}
 }
 
 // Notify implements the Notifier interface.
